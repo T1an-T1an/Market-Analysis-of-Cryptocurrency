@@ -166,6 +166,8 @@ The table above summarizes statistics for price, volume, M20, and M5 across 4068
 # Data Visualization - Crypto Price and Market Cap Over Time
 
 ```{python}
+#| label: fig-polar1
+#| fig-cap: "Crypto Price and Market Cap Over Time"
 ex_data = df.copy()
 market_cap = df2.copy()
 # Assuming ex_data is your DataFrame with columns 'exchange', 'date', and 'price'
@@ -180,106 +182,64 @@ color_map = {
     'ripple': '#006097',
     'dogecoin': '#BA9F33',
 }
-```
+
+import matplotlib.pyplot as plt
+
+# Ensure the data is sorted by date for each cryptocurrency
+ex_data.sort_values(by=['exchange', 'date'], inplace=True)
+market_cap.sort_values(by=['exchange', 'date'], inplace=True)
+
+# Create a figure and axes for the subplots
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(20, 10), sharex=True)
+fig.suptitle('Crypto Price and Market Cap Over Time')
+
+# Plot 1: Crypto Prices
+for exchange, group in ex_data.groupby('exchange'):
+    axs[0].plot(group['date'], group['price'], label=exchange, color=color_map.get(exchange, 'black'))
+axs[0].set_title('Crypto Price Over Time')
+axs[0].set_yscale('log')
+axs[0].set_ylabel('Close Price (USD)')
+for label in axs[0].get_xticklabels():
+    label.set_rotation(45)
+
+axs[0].legend()
+
+#set plot size
+fig.set_size_inches(11, 8, forward=True)
+#set x title rotate
+plt.xticks(rotation=45)
+
+# Plot 2: Market Cap
+for exchange, group in market_cap.groupby('exchange'):
+    axs[1].plot(group['date'], group['market_cap'], label=exchange, color=color_map.get(exchange, 'black'))
+axs[1].set_title('Market Cap Over Time')
+axs[1].set_yscale('log')
+axs[1].set_ylabel('Market Cap (USD)')
+for label in axs[1].get_xticklabels():
+    label.set_rotation(45)
+axs[1].legend()
+
+# Set the y-axis ticks and labels for the price plot
+price_ticks = [0.1, 1, 10, 100, 1000, 10000, 100000]
+price_tick_labels = ['0.1', '1', '10', '100', '1K', '10K', '100K']
+axs[0].set_yticks(price_ticks)
+axs[0].set_yticklabels(price_tick_labels)
+
+# Since matplotlib does not handle 'B' and 'T' natively, we'll set these as labels.
+market_cap_ticks = [2e9, 5e9, 10e9, 20e9, 50e9, 100e9, 200e9, 500e9, 1e12]  # Convert B and T to numeric values
+market_cap_tick_labels = ['2B', '5B', '10B', '20B', '50B', '100B', '200B', '500B', '1T']
+axs[1].set_yticks(market_cap_ticks)
+axs[1].set_yticklabels(market_cap_tick_labels)
 
 
-```{python}
-#| label: fig-polar
-#| fig-cap: "Crypto Price Over Time"
-#| fig-cap-location: top
+# Automatically adjust subplot params so that the subplot(s) fits in to the figure area
+plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-
-
-# Initialize a figure for the crypto prices
-fig_price = go.Figure()
-
-# Add a line for each exchange
-for exchange in ex_data['exchange'].unique():
-    df_filtered = ex_data[ex_data['exchange'] == exchange]
-    fig_price.add_trace(
-        go.Scatter(
-            x=df_filtered['date'],
-            y=df_filtered['price'],
-            name=exchange,
-            mode='lines',
-            line=dict(color=color_map.get(exchange, 'black'))  # Use color map
-        )
-    )
-
-# Update layout for crypto prices
-fig_price.update_layout(
-    title_text="Crypto Prices Over Time",
-    xaxis_title="Date",
-    yaxis_title="Price (USD)",
-    yaxis_type="log",  # Use a logarithmic scale for the y-axis
-    xaxis=dict(
-        rangeselector=dict(
-            buttons=list([
-                dict(count=1, label="1m", step="month", stepmode="backward"),
-                dict(count=6, label="6m", step="month", stepmode="backward"),
-                dict(step="all")
-            ])
-        ),
-        rangeslider=dict(visible=True),
-        type="date"
-    )
-)
-
-fig_price.show()
-
-```
-
-
-```{python}
-#| label: fig-polar10
-#| fig-cap: "Market Cap Over Time"
-#| fig-cap-location: top
-# Assuming market_cap is your DataFrame with columns 'exchange', 'date', and 'market_cap'
-
-# Initialize a figure for the market cap
-fig_market_cap = go.Figure()
-
-# Add a line for each exchange
-for exchange in market_cap['exchange'].unique():
-    df_filtered = market_cap[market_cap['exchange'] == exchange]
-    fig_market_cap.add_trace(
-        go.Scatter(
-            x=df_filtered['date'],
-            y=df_filtered['market_cap'],
-            name=exchange,
-            mode='lines',
-            line=dict(color=color_map.get(exchange, 'black')),  # Use color map
-            showlegend=True  # Hide legends to avoid duplication
-        )
-    )
-
-# Update layout for market cap
-fig_market_cap.update_layout(
-    title_text="Market Cap Over Time",
-    xaxis_title="Date",
-    yaxis_title="Market Cap (USD)",
-    yaxis_type="log",  # Use a logarithmic scale for the y-axis
-    xaxis=dict(
-        rangeselector=dict(
-            buttons=list([
-                dict(count=1, label="1m", step="month", stepmode="backward"),
-                dict(count=6, label="6m", step="month", stepmode="backward"),
-                dict(step="all")
-            ])
-        ),
-        rangeslider=dict(visible=True),
-        type="date"
-    )
-)
-
-fig_market_cap.show()
+# Show the plot
+plt.show()
 
 ```
 
-::: {.callout-note}
-## note
-Please double-click a coin on the right legend to isolate a specific cryptocurrency for better visualization.
-:::
 
 The charts depict the price and market capitalization of various cryptocurrencies over time, plotted on logarithmic scales to accommodate wide-ranging values. Bitcoin has the highest price and market cap, with Ethereum following. Most cryptocurrencies show an increase in both price and market cap over the observed period. Market caps for smaller cryptocurrencies like Dogecoin, Ripple, and Cardano are lower but increase steadily. Ethereum Classic, Solana, and Binance Coin also show growth. The right charts indicate that while prices fluctuate, market caps generally trend upwards, suggesting an increasing investment in these assets over time. The growth trajectory is consistent across both short-term and long-term views.
 
