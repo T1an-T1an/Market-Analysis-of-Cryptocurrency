@@ -166,14 +166,9 @@ The table above summarizes statistics for price, volume, M20, and M5 across 4068
 # Data Visualization - Crypto Price and Market Cap Over Time
 
 ```{python}
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-
-# Assuming df and df2 are already defined above
 ex_data = df.copy()
 market_cap = df2.copy()
-
-# Define a color map for exchanges
+# Assuming ex_data is your DataFrame with columns 'exchange', 'date', and 'price'
 color_map = {
     'bitcoin': '#FF9900',
     'ethereum': '#3C3C3D',
@@ -185,83 +180,100 @@ color_map = {
     'ripple': '#006097',
     'dogecoin': '#BA9F33',
 }
-
-def create_plots():
-    fig = make_subplots(rows=1, cols=2, subplot_titles=('Crypto Price Over Time', 'Market Cap Over Time'), shared_xaxes=True)
-
-    # Plot 1: Crypto Prices
-    for exchange in ex_data['exchange'].unique():
-        fig.add_trace(
-            go.Scatter(
-                x=ex_data[ex_data['exchange'] == exchange]['date'],
-                y=ex_data[ex_data['exchange'] == exchange]['price'],
-                name=exchange,
-                mode='lines',
-                line=dict(color=color_map.get(exchange, 'black')),  # Use color map, default to black if not found
-                legendgroup=exchange  # Assign to legend group
-            ),
-            row=1, col=1
-        )
-
-    # Plot 2: Market Cap
-    for exchange in market_cap['exchange'].unique():
-        fig.add_trace(
-            go.Scatter(
-                x=market_cap[market_cap['exchange'] == exchange]['date'],
-                y=market_cap[market_cap['exchange'] == exchange]['market_cap'],
-                name=exchange,
-                mode='lines',
-                line=dict(color=color_map.get(exchange, 'black')),  # Use color map
-                legendgroup=exchange,  # Assign to the same legend group as the first plot
-                showlegend=False  # Optionally disable legend duplication
-            ),
-            row=1, col=2
-        )
-
-    # Update y-axes to use a logarithmic scale
-    fig.update_yaxes(title_text="Close Price (USD)", type="log", row=1, col=1)
-    fig.update_yaxes(title_text="Market Cap (USD)", type="log", row=1, col=2)
-
-    # Add range slider to each subplot
-    fig.update_layout(
-        xaxis=dict(
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(step="all")
-                ])
-            ),
-            rangeslider=dict(visible=True),
-            type="date"
-        ),
-        xaxis2=dict(
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(step="all")
-                ])
-            ),
-            rangeslider=dict(visible=True),
-            type="date"
-        ),
-        title_text="Crypto Price and Market Cap Over Time", height=600, width=1200
-    )
-
-    return fig
-
-# Now, the plot will not show unless you explicitly call the function and then call .show() on the returned figure
-fig = create_plots()
-# fig.show() # Uncomment this line when you want to display the plot
 ```
 
 
 ```{python}
 #| label: fig-polar
-#| fig-cap: "Crypto Price and Market Cap Over Time"
+#| fig-cap: "Crypto Price Over Time"
 #| fig-cap-location: top
-fig.show()
+
+
+
+# Initialize a figure for the crypto prices
+fig_price = go.Figure()
+
+# Add a line for each exchange
+for exchange in ex_data['exchange'].unique():
+    df_filtered = ex_data[ex_data['exchange'] == exchange]
+    fig_price.add_trace(
+        go.Scatter(
+            x=df_filtered['date'],
+            y=df_filtered['price'],
+            name=exchange,
+            mode='lines',
+            line=dict(color=color_map.get(exchange, 'black'))  # Use color map
+        )
+    )
+
+# Update layout for crypto prices
+fig_price.update_layout(
+    title_text="Crypto Prices Over Time",
+    xaxis_title="Date",
+    yaxis_title="Price (USD)",
+    yaxis_type="log",  # Use a logarithmic scale for the y-axis
+    xaxis=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(step="all")
+            ])
+        ),
+        rangeslider=dict(visible=True),
+        type="date"
+    )
+)
+
+fig_price.show()
+
+```
+
+
+```{python}
+#| label: fig-polar10
+#| fig-cap: "Market Cap Over Time"
+#| fig-cap-location: top
+# Assuming market_cap is your DataFrame with columns 'exchange', 'date', and 'market_cap'
+
+# Initialize a figure for the market cap
+fig_market_cap = go.Figure()
+
+# Add a line for each exchange
+for exchange in market_cap['exchange'].unique():
+    df_filtered = market_cap[market_cap['exchange'] == exchange]
+    fig_market_cap.add_trace(
+        go.Scatter(
+            x=df_filtered['date'],
+            y=df_filtered['market_cap'],
+            name=exchange,
+            mode='lines',
+            line=dict(color=color_map.get(exchange, 'black')),  # Use color map
+            showlegend=True  # Hide legends to avoid duplication
+        )
+    )
+
+# Update layout for market cap
+fig_market_cap.update_layout(
+    title_text="Market Cap Over Time",
+    xaxis_title="Date",
+    yaxis_title="Market Cap (USD)",
+    yaxis_type="log",  # Use a logarithmic scale for the y-axis
+    xaxis=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(step="all")
+            ])
+        ),
+        rangeslider=dict(visible=True),
+        type="date"
+    )
+)
+
+fig_market_cap.show()
+
 ```
 
 ::: {.callout-note}
