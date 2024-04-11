@@ -1,0 +1,352 @@
+---
+title: "EDA"
+author:
+  - name: Jingda Yang
+    affiliations:
+      - name: Georgetown University
+        city: Washington
+        state: DC
+
+format:
+  html:
+    theme:
+        light: cosmo
+        dark: darkly
+        
+    embed-resources: true
+    # eval: false
+    code-fold: true 
+    code-tools: true
+    self-contained: true
+    smooth-scroll: true
+    highlight: tango
+    page-layout: full
+    fig-cap-location: bottom
+    toc: true
+    toc-location: left
+    toc-title: Contents
+    number-sections: true
+    grid:
+      sidebar-width: 130px
+      body-width: 1000px
+---
+
+```{python}
+#| echo: false
+from PIL import Image
+myImage = Image.open('eda.png')
+myImage
+```
+*Picture from codecademy*
+
+::: {.callout-tip}
+## note
+**Please refresh the page if table or figure is not displayed.** \
+**Please use Code option on the top right corner to see the code or hide the code.** \
+**Please use the dark/light theme option on the top right corner to change the theme.**
+:::
+
+# Crypto Market Overview
+From 2023 to 2024, the cryptocurrency market in the US experienced significant fluctuations. Bitcoin, Ethereum, and other major coins witnessed both surges and corrections in their prices. This period saw increased regulatory scrutiny, impacting market sentiment and prices. Additionally, the emergence of new projects and technologies contributed to market dynamics, with some coins experiencing rapid growth while others faced challenges or faded into obscurity. A market overview is crucial to understanding trends, assessing risk, and making informed investment decisions. It provides insights into market sentiment, regulatory developments, technological advancements, and the performance of various coins. With the crypto market being highly volatile and influenced by numerous factors, a comprehensive overview helps investors navigate this complex landscape and identify opportunities amidst the risks.
+
+## Dataset Overview
+
+We utilize Kaggle data encompassing prices and trading volumes of various cryptocurrencies, supplemented by calculations for M20 and M5 metrics. The dataset spans from January 1, 2023, to recent data in 2024. Below, we present a succinct overview along with descriptive statistics of the variables.
+
+# Importing Necessary Libraries
+```{python}
+import os
+import requests
+import pandas as pd
+import numpy as np
+import datetime
+pd.set_option('display.float_format',lambda x : '%.2f'%x)
+import warnings
+warnings.filterwarnings('ignore')
+import plotly.graph_objects as go 
+import gc
+import matplotlib.colors
+from plotly.subplots import make_subplots
+from plotly.offline import init_notebook_mode
+from datetime import datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+import plotly.figure_factory as ff
+```
+
+# Data Import and Preprocessing
+```{python}
+#| label: tbl-1
+#| tbl-cap: Raw Dataset
+
+# Define the directory path
+directory = '../data/historical_data2'
+
+# Define the list of CSV files to import
+csv_files = [
+    'bitcoin.csv',
+    'ethereum.csv',
+    'ethereum-classic.csv',
+    'binancecoin.csv',
+    'bitcoin-cash.csv',
+    'solana.csv',
+    'cardano.csv',
+    'ripple.csv',
+    'dogecoin.csv',
+ 
+]
+
+# Initialize an empty list to store dataframes
+dfs = []
+
+# Loop through the selected CSV files
+for filename in csv_files:
+    file_path = os.path.join(directory, filename)
+    # Read each CSV file and append to the list
+    df = pd.read_csv(file_path)
+    
+    # Convert 'date' column to datetime format
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Convert columns with scientific notation to float
+    df['total_volume'] = df['total_volume'].astype(float)
+    df['market_cap'] = df['market_cap'].astype(float)
+    
+    dfs.append(df)
+
+# Concatenate all dataframes in the list
+df = pd.concat(dfs, ignore_index=False)
+df.rename(columns={'total_volume': 'volume', 'coin_name': 'exchange'}, inplace=True)
+
+# Convert date column to datetime
+# Convert 'date' to datetime and sort
+df['date'] = pd.to_datetime(df['date'])
+df = df.sort_values(by=['exchange', 'date'])
+
+# Calculating M20 and M5
+df['M20'] = df.groupby('exchange')['price'].transform(lambda x: x.rolling(window=20).mean())
+df['M5'] = df.groupby('exchange')['price'].transform(lambda x: x.rolling(window=5).mean())
+df = df.dropna()
+
+#drop all date before 2023
+df = df[df['date'] >= '2023-01-01']
+df2 = df.copy()
+df.drop(columns=['market_cap'], inplace=True)
+df.head()
+```
+
+
+```{python}
+#| label: tbl-2
+#| tbl-cap: Descriptive Statistics of Dataset
+ds=df.describe()
+ds=pd.DataFrame(ds)
+ds
+```
+
+The table above summarizes statistics for price, volume, M20, and M5 across 4068 data points. Price, M20, and M5 share similar minimum and quartile values, suggesting possible correlation, with price ranging from 0.06 to 73,097.77 and M20 and M5 closely tracking this range. Volume's statistics are significantly higher, with a mean in the billions and a maximum reaching nearly a trillion, indicating a different scale of measurement. The high standard deviations for all variables hint at substantial variability within the dataset.
+
+# Data Visualization - Crypto Price and Market Cap Over Time
+```{python}
+#| label: fig-polar
+#| fig-cap: "Crypto Price and Market Cap Over Time"
+#| fig-cap-location: top
+
+ex_data = df.copy()
+market_cap = df2.copy()
+
+# Define a color map for exchanges
+color_map = {
+    'bitcoin': '#FF9900',
+    'ethereum': '#3C3C3D',
+    'ethereum-classic': '#669073',
+    'binancecoin': '#F3BA2F',
+    'bitcoin-cash': '#4CC947',
+    'solana': '#00FFCD',
+    'cardano': '#3D9',
+    'ripple': '#006097',
+    'dogecoin': '#BA9F33',
+}
+# Create a figure with subplots
+fig = make_subplots(rows=1, cols=2, subplot_titles=('Crypto Price Over Time', 'Market Cap Over Time'), shared_xaxes=True)
+
+# Plot 1: Crypto Prices
+for exchange in ex_data['exchange'].unique():
+    fig.add_trace(
+        go.Scatter(
+            x=ex_data[ex_data['exchange'] == exchange]['date'],
+            y=ex_data[ex_data['exchange'] == exchange]['price'],
+            name=exchange,
+            mode='lines',
+            line=dict(color=color_map.get(exchange, 'black')),  # Use color map, default to black if not found
+            legendgroup=exchange  # Assign to legend group
+        ),
+        row=1, col=1
+    )
+
+# Plot 2: Market Cap
+for exchange in market_cap['exchange'].unique():
+    fig.add_trace(
+        go.Scatter(
+            x=market_cap[market_cap['exchange'] == exchange]['date'],
+            y=market_cap[market_cap['exchange'] == exchange]['market_cap'],
+            name=exchange,
+            mode='lines',
+            line=dict(color=color_map.get(exchange, 'black')),  # Use color map
+            legendgroup=exchange,  # Assign to the same legend group as the first plot
+            showlegend=False  # Optionally disable legend duplication
+        ),
+        row=1, col=2
+    )
+
+# Update y-axes to use a logarithmic scale
+fig.update_yaxes(title_text="Close Price (USD)", type="log", row=1, col=1)
+fig.update_yaxes(title_text="Market Cap (USD)", type="log", row=1, col=2)
+
+# Add range slider to each subplot
+fig.update_layout(
+    xaxis=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(step="all")
+            ])
+        ),
+        rangeslider=dict(visible=True),
+        type="date"
+    ),
+    xaxis2=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(step="all")
+            ])
+        ),
+        rangeslider=dict(visible=True),
+        type="date"
+    ),
+    title_text="Crypto Price and Market Cap Over Time", height=600, width=1200
+)
+
+fig.show()
+```
+
+::: {.callout-note}
+## note
+Please double-click a coin on the right legend to isolate a specific cryptocurrency for better visualization.
+:::
+
+The charts depict the price and market capitalization of various cryptocurrencies over time, plotted on logarithmic scales to accommodate wide-ranging values. Bitcoin has the highest price and market cap, with Ethereum following. Most cryptocurrencies show an increase in both price and market cap over the observed period. Market caps for smaller cryptocurrencies like Dogecoin, Ripple, and Cardano are lower but increase steadily. Ethereum Classic, Solana, and Binance Coin also show growth. The right charts indicate that while prices fluctuate, market caps generally trend upwards, suggesting an increasing investment in these assets over time. The growth trajectory is consistent across both short-term and long-term views.
+
+# Data Visualization - Correlation Heatmap of Cryptocurrencies
+```{python}
+#| label: fig-polar2
+#| fig-cap: "Correlation Heatmap of Cryptocurrencies"
+#| fig-cap-location: top
+df_pivot=df.pivot_table(index='date', columns='exchange', values='price').reset_index()
+corr=df_pivot.corr().round(2)
+mask=np.triu(np.ones_like(corr, dtype=bool))
+c_mask = np.where(~mask, corr, 100)
+c=[]
+for i in c_mask.tolist()[1:]:
+    c.append([x for x in i if x != 100])
+    
+cor=c[::-1]
+x=corr.index.tolist()[:-1]
+y=corr.columns.tolist()[1:][::-1]
+fig=ff.create_annotated_heatmap(z=cor, x=x, y=y, 
+                                hovertemplate='Correlation between %{x} and %{y} Coin = %{z}',
+                                colorscale='viridis', name='')
+fig.update_layout(template="plotly_white", title='Coin Correlation',height=800,width=900,
+                  yaxis=dict(showgrid=False, autorange='reversed'),
+                  xaxis=dict(showgrid=False))
+fig.show()
+```
+
+The chart presents the correlation coefficients between various cryptocurrencies. Bitcoin shows a high correlation with most coins, particularly Ethereum at 0.97, suggesting their market movements are closely related. Ethereum Classic also shows strong correlations with other coins, especially Ethereum at 0.86. Dogecoin has a noticeable correlation with Bitcoin at 0.78 and even higher with Binance Coin at 0.86. Ripple stands out for its low correlation with other cryptocurrencies, notably only 0.04 with Binance Coin, indicating its price movements are mostly independent from the others. Generally, the chart reflects interdependencies between these digital assets, with Bitcoin being a central reference point.
+
+# Data Visualization - Average Return, Closing Price, and Shares Traded Over Time
+```{python}
+#| label: fig-polar3
+#| fig-cap: "Average Return, Closing Price, and Shares Traded Over Time"
+#| fig-cap-location: top
+
+colors=['blue','red','green']
+df["Return"] = df.groupby("exchange")["price"].pct_change(1)
+train_date=df.date.unique()
+returns=df.groupby('date')['Return'].mean().mul(100).rename('Average Return')
+close_avg=df.groupby('date')['price'].mean().rename('Closing Price')
+vol_avg=df.groupby('date')['volume'].mean().rename('Volume')
+
+fig = make_subplots(rows=3, cols=1, 
+                    shared_xaxes=True)
+for i, j in enumerate([returns, close_avg, vol_avg]):
+    fig.add_trace(go.Scatter(x=train_date, y=j, mode='lines',
+                             name=j.name, marker_color=colors[i]), row=i+1, col=1)
+fig.update_xaxes(rangeslider_visible=False,
+                 rangeselector=dict(
+                     buttons=list([
+                         dict(count=6, label="6m", step="month", stepmode="backward"),
+                         dict(count=1, label="1y", step="year", stepmode="backward"),
+                         dict(count=2, label="2y", step="year", stepmode="backward"),
+                         dict(step="all")])),
+                 row=1,col=1)
+fig.update_layout(title='Average Stock Return, Average Closing Price, and Average Shares Traded', 
+                  hovermode='x unified', height=800, 
+                  yaxis1=dict(title='Average Coin Return (%)', ticksuffix='%'), 
+                  yaxis2_title='Average Closing Price (USD)', yaxis3_title='Average Shares Traded (USD)',
+                  showlegend=False)
+fig.show()
+```
+
+The composite chart displays the Market's average coin return, closing price, and shares traded over time. The top graph shows fluctuating daily returns, mostly ranging between -10% and +10%, without a clear trend of increase or decrease, indicating volatility in returns. The middle graph illustrates the closing price of a cryptocurrency, which shows a steady increase over time, particularly a sharp rise around late 2023 through early 2024, suggesting significant price growth during this period. The bottom graph depicts the shares traded in USD, with notable spikes in trading volume at several points, especially a significant peak around March 2023 followed by generally increasing activity towards March 2024, reflecting heightened market activity at these times.
+
+# Data Visualization - Yearly Average Returns
+```{python}
+#| label: fig-polar4
+#| fig-cap: "Yearly Average Returns"
+#| fig-cap-location: top
+final_v1=df.copy()
+final_v1["Return"] = final_v1.groupby("exchange")["price"].pct_change(1)
+final_v1['date'] = pd.to_datetime(final_v1['date'],errors='coerce')
+final_v1['Year'] = final_v1['date'].dt.year
+years = {year: pd.DataFrame() for year in final_v1.Year.unique()[::-1]}
+for key in years.keys():
+    df=final_v1[final_v1.Year == key]
+    years[key] = df.groupby('exchange')['Return'].mean().mul(100).rename("Avg_return_{}".format(key))
+df=pd.concat((years[i].to_frame() for i in years.keys()), axis=1)
+df=df.sort_values(by="Avg_return_2023")
+fig = make_subplots(rows=1, cols=3, shared_yaxes=True)  # Adjust based on your actual subplot needs
+
+for i, col in enumerate(df.columns):
+    x = df[col]
+    mask = x <= 0
+    # Adding traces for negative and positive returns
+    fig.add_trace(go.Bar(x=x[mask], y=df.index[mask], orientation='h',
+                         text=x[mask], texttemplate='%{text:.2f}%', textposition='auto',
+                         hovertemplate='Average Return in %{y} exchange = %{x:.4f}%',
+                         marker=dict(color='red', opacity=0.7), name=col[-4:]),
+                  row=1, col=i+1)
+    fig.add_trace(go.Bar(x=x[~mask], y=df.index[~mask], orientation='h',
+                         text=x[~mask], texttemplate='%{text:.2f}%', textposition='auto',
+                         hovertemplate='Average Return in %{y} exchange = %{x:.4f}%',
+                         marker=dict(color='green', opacity=0.7), name=col[-4:]),
+                  row=1, col=i+1)
+
+    # Update axes to include grid
+    fig.update_xaxes(title_text=f"{col[-4:]} Returns", title_standoff=25,
+                     automargin=True, showgrid=True, gridcolor='LightGrey', row=1, col=i+1)
+    fig.update_yaxes(showgrid=True, gridcolor='LightGrey', row=1, col=i+1)
+
+fig.update_layout(template="plotly_white", title='Yearly Average Returns',
+                  hovermode='closest', height=600, width=900, showlegend=False)
+fig.show()
+
+```
+
+The bar charts show the yearly average returns for various cryptocurrencies in 2023 and 2024. In 2024, Dogecoin had the highest average return at 0.99%, followed by Bitcoin Cash at 0.89% and Solana at 0.84%. The lowest return was seen with Ripple at 0.09%. In 2023, Solana led the returns at 0.77%, with Cardano and Ripple yielding the lowest returns at 0.31% and 0.26%, respectively. Bitcoin showed more consistent performance with a 0.63% return in 2024 and a 0.28% return in 2023. Overall, the returns fluctuated year over year, with Dogecoin showing the most significant increase in returns from 2023 to 2024.
+
+
+# Conclusion
+The cryptocurrency market in the US experienced significant fluctuations from 2023 to 2024, with Bitcoin, Ethereum, and other major coins witnessing both surges and corrections in their prices. The dataset analyzed in this overview provides insights into the market dynamics, including price movements, trading volumes, and correlations between various cryptocurrencies. The visualizations presented in this report offer a comprehensive view of the market, highlighting trends, patterns, and opportunities for investors. By examining the data and visualizations, investors can gain a better understanding of the market landscape, assess risks, and make informed investment decisions. The analysis underscores the importance of monitoring market trends, regulatory developments, and technological advancements to navigate the volatile cryptocurrency market successfully.

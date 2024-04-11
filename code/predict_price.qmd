@@ -1,0 +1,573 @@
+---
+title: "Bitcoin Price Prediction"
+author:
+  - name: Jingda Yang
+    affiliations:
+      - name: Georgetown University
+        city: Washington
+        state: DC
+
+format:
+  html:
+    theme:
+        light: cosmo
+        dark: darkly
+        
+    embed-resources: true
+    # eval: false
+    code-fold: true 
+    code-tools: true
+    self-contained: true
+    smooth-scroll: true
+    highlight: tango
+    page-layout: full
+    fig-cap-location: bottom
+    toc: true
+    toc-location: left
+    toc-title: Contents
+    number-sections: true
+#
+---
+
+```{python}
+#| eval: true
+from PIL import Image
+myImage = Image.open('predict_price.jpeg')
+#change the size of the image
+myImage = myImage.resize((1100, 500))
+myImage
+
+```
+*Picture from The Coincodex*
+
+::: {.callout-tip}
+## note
+**Please refresh the page if table or figure is not displayed.** \
+**Please use Code option on the top right corner to see the code or hide the code.** \
+**Please use the dark/light theme option on the top right corner to change the theme.**
+:::
+
+# Import Libraries
+```{python}
+# Import libraries
+import random
+import os
+import numpy as np 
+import pandas as pd 
+
+# EDA
+import matplotlib.pyplot as plt
+from matplotlib.pylab import rcParams
+
+# Metrics
+from sklearn.metrics import r2_score
+from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
+
+# Modeling and preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.svm import SVR, LinearSVR
+from sklearn.neighbors import KNeighborsRegressor
+
+from sklearn.ensemble import BaggingRegressor
+import xgboost as xgb
+import warnings
+warnings.filterwarnings("ignore")
+```
+
+
+
+# Import Data (Data Combination and Data Cleaning)
+
+## import data
+
+There are two datasets that I will use in this project. The first dataset contains the price and volume data of Bitcoin. The second dataset contains detailed information about Bitcoin, including the opening price, closing price, highest price and lowest price. I will combine these two datasets to create a new dataset for analysis.
+
+::: {.callout-tip}
+## note
+The cryptocurrency market is highly volatile, and the price of Bitcoin can change rapidly. Therefore, it is important to use the most up-to-date data for analysis.
+  
+I only use the data from `2022-01-01` to `2024-03-12` for analysis.
+:::
+
+```{python}
+#| label: tbl-1
+#| tbl-cap: Raw Dataset - 1
+directory = '../data/historical_data2'
+
+# Define the list of CSV files to import
+csv_files = [
+    'bitcoin.csv'
+]
+
+# Initialize an empty list to store dataframes
+dfs = []
+
+# Loop through the selected CSV files
+for filename in csv_files:
+    file_path = os.path.join(directory, filename)
+    # Read each CSV file and append to the list
+    df = pd.read_csv(file_path)
+    
+    # Convert 'date' column to datetime format
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Convert columns with scientific notation to float
+    df['total_volume'] = df['total_volume'].astype(float)
+    df['market_cap'] = df['market_cap'].astype(float)
+    
+    dfs.append(df)
+
+df = pd.concat(dfs, ignore_index=False)
+df.rename(columns={'total_volume': 'Volume', 'coin_name': 'exchange'}, inplace=True)
+df = df[df['date'] >= '2022-01-01']
+df = df[df['date'] <= '2024-03-12']
+df.head()
+```
+
+
+```{python}
+#| label: tbl-2
+#| tbl-cap: Raw Dataset - 2
+df2 = pd.read_csv('../data/historical_data1/BTC.csv')
+# Extract date from 2022-01-01 to 2024-03-27
+df2 = df2[df2['date'] >= '2022-01-01']
+df2 = df2[df2['date'] <= '2024-03-27']
+df2['date'] = pd.to_datetime(df2['date'])
+df2.head()
+```
+
+
+```{python}
+#| label: tbl-3
+#| tbl-cap: Raw Dataset - 3 （Combined Dataset）
+#Join the two dataframes by date using pd.merge
+data = pd.merge(df, df2, on='date')
+
+# Select specific columns
+data = data.loc[:, ['date', 'high', 'low', 'open', 'close', 'Volume']]
+
+# Rename the 'Volume' column with the first letter capitalized
+data = data.rename(columns={'date': 'Date', 
+                                          'high': 'High',
+                                          'low': 'Low',
+                                          'open': 'Open',
+                                          'close': 'Close',})
+
+#convert data to pd dataframe
+data = pd.DataFrame(data)
+data['Volume'] = data['Volume'].apply(lambda x: '{:.0f}'.format(x))
+# Convert 'Volume' to float
+data['Volume'] = data['Volume'].astype(float)
+# Display the modified DataFrame
+data.head()
+```
+
+
+# Add New Features
+Before we start the analysis, we will add some new features to the dataset. These features will help us to better understand the data and make better predictions.
+
+::: {.callout-tip}
+## note
+The new features we will add are:
+   
+ - Upper shadow: The high price minus the higher of the open and close prices, which can be used to measure the strength of the market.
+   
+ - Lower shadow: The lower of the open and close prices minus the low price, which can be used to measure the strength of the market.
+   
+ -  High2low: The ratio of the high price to the low price, which can be used to measure the volatility of the market.
+:::
+
+```{python}
+def get_features(df_feat):
+    #Add two new features
+    #Upper shadow is the high price minus the higher of the open and close prices, which can be used to measure the strength of the market
+    df_feat['Upper_Shadow'] = df_feat['High'] - np.maximum(df_feat['Close'], df_feat['Open'])
+
+    #Lower shadow is the lower of the open and close prices minus the low price, which can be used to measure the strength of the market
+    df_feat['Lower_Shadow'] = np.minimum(df_feat['Close'], df_feat['Open']) - df_feat['Low']
+    
+    #high2low is the ratio of the high price to the low price, which can be used to measure the volatility of the market
+    df_feat['high2low'] = df_feat['High'] / df_feat['Low']
+    
+    return df_feat
+```
+
+```{python}
+#| label: tbl-4
+#| tbl-cap: Final Dataset
+df = get_features(data)
+#df['Volume'] = df['Volume'].astype(float)
+df.head()
+```
+
+# Set the Number of Days to Forecast and the Target Variable
+I want to predict ten days of Bitcoin prices, so I set the `forecasting_days` variable to 10. The target variable is the `closing price` of Bitcoin.
+```{python}
+forecasting_days = 10                               # Number of days to forecast
+target = 'Close'                                    # Target variable, which is the closing price
+# Set random state
+def fix_all_seeds(seed):                            # Fix all seeds for reproducibility
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)        # Set PYTHONHASHSEED
+
+random_state = 42
+fix_all_seeds(random_state)
+
+print(f"Number of days to predict: {forecasting_days}")
+print(f"Target variable: {target}")
+```
+
+# Data Preprocessing: Split Data into Training and Testing Sets
+
+The function below will split the data into training and testing sets. I will use the training set to train the model and the testing set to evaluate the model's performance. Users can choose between two options: 'random' and 'end'. If the option is 'random', the function will use the train_test_split function from scikit-learn to split the data randomly. If the option is 'end', the function will use all the previous data for training and the last n days for testing. The function will return the training and testing sets and the target variable y.
+
+```{python}
+def get_data_for_training(df, test_option, test_size):
+    # Get test and training datasets
+    """
+    I do not need the 'Date' column for training, so I will drop it.
+    I will also drop any rows with missing values.
+    I will set the target variable 'Close' as the y variable.
+    """
+    df = df.drop(columns = ['Date'])
+    df = df.dropna(how="any")
+    y = df.pop(target)
+    
+    # Standartization data
+    scaler = StandardScaler()
+    df = pd.DataFrame(scaler.fit_transform(df), columns = df.columns)
+
+    """
+    Split the data into training and testing sets using the test_option parameter.
+    If test_option is 'random', we will use the train_test_split function from scikit-learn.
+    Because we will predict the future price, we will use the all previous data for training.
+    """
+    if test_option == "random":
+        train, test, ytrain, ytest = train_test_split(df, y, test_size=test_size, random_state=random_state)
+    else:
+        # test_option == "end"
+        train_len = len(df)-test_size
+        test = df[train_len:]
+        train = df[:train_len]
+        ytest = y[train_len:]
+        ytrain = y[:train_len]
+        
+    print(f'Get training dataset with {len(train)} rows and test dataset with {len(test)} rows for test option - "{test_option}"')
+    
+    return train, test, ytrain, ytest
+```
+
+## Apply the Function Above to Split the Data
+```{python}
+# Get test and training datasets
+train, test, target_train, target_test = get_data_for_training(df, 'end', forecasting_days) 
+```
+
+Only last 10 days are used for testing, and the rest of the data is used for training.
+
+# Model Selection and Training
+
+I will use the following models to predict the Bitcoin price: KNeighbors Regressor, Support Vector Machines, Bagging Regressor, and XGB Regressor. I will use GridSearchCV to find the best hyperparameters for each model. The function below will train the models and return the best model for each model type.
+
+```{python}
+# Set parameters of models
+models = pd.DataFrame(columns = ['name', 'model', 'param_grid'])
+
+# KNeighbors Regressor
+n = 0
+models.loc[n, 'name'] = 'KNeighbors Regressor'
+models.at[n, 'model'] = KNeighborsRegressor()
+models.at[n, 'param_grid'] = {'n_neighbors': [3, 5, 10, 20, 30],
+                              'leaf_size': [10, 20, 30]
+                             }
+
+# Support Vector Machines
+n = 1
+models.loc[n, 'name'] = 'Support Vector Machines'
+models.at[n, 'model'] = SVR()
+models.at[n, 'param_grid'] = {'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
+                              'C': np.linspace(1, 15, 15),
+                              'tol': [1e-3, 1e-4]
+                             }
+# Bagging Classifier
+n = 2
+models.loc[n, 'name'] = 'Bagging Regressor'
+models.at[n, 'model'] = BaggingRegressor()
+models.at[n, 'param_grid'] = {'max_features': np.linspace(0.05, 0.8, 1),
+                              'n_estimators': [3, 4, 5, 6],
+                              'warm_start' : [False]
+                             }
+
+
+# XGB Classifier
+n = 3
+models.loc[n, 'name'] = 'XGB Regressor'
+models.at[n, 'model'] = xgb.XGBRegressor()
+models.at[n, 'param_grid'] = {'n_estimators': [50, 60, 70], 
+                              'learning_rate': [0.01, 0.05, 0.1, 0.2],
+                              'max_depth': [3, 4, 5]
+                             }
+```
+
+## Show Basic Information of Models
+```{python}
+#| label: tbl-5
+#| tbl-cap: Model Information
+models
+```
+
+::: {.callout-tip}
+## note
+The table above shows the models we will use for prediction, and the hyperparameters we will tune for each model. We will use GridSearchCV to find the best hyperparameters for each model.
+:::
+## Train the Models
+```{python}
+def model_prediction(models, train_features, test_features, train_labels, test_labels):    
+    # Models training and data prediction for all models from DataFrame models
+    
+    
+    def calc_add_score(res, n, type_score, list_true, list_pred, feature_end):
+        # Calculation score with type=type_score for list_true and list_pred 
+        # Adding score into res.loc[n,...]
+        if type_score=='r2_score':
+            score = r2_score(list_true, list_pred)
+        elif type_score=='rmse':
+            score = mean_squared_error(list_true, list_pred, squared=False)
+        elif type_score=='mape':
+            score = mean_absolute_percentage_error(list_true, list_pred)
+        res.loc[i, type_score + feature_end] = score
+        return res
+    
+    
+    def get_scores(results, n, train_pred, test_pred):
+        # Calculation and saving scores
+        for score_item in ['r2_score', 'rmse', 'mape']:
+            results = calc_add_score(results, n, score_item, train_labels, train_pred, '_train')
+            results = calc_add_score(results, n, score_item, test_labels, test_pred, '_test')
+        return results
+    
+    
+    # Results
+    results = models[['name']].copy()
+    model_all = []
+
+    for i in range(len(models)):
+        # Training
+        print(f"Tuning model '{models.loc[i, 'name']}'")
+        model = GridSearchCV(models.at[i, 'model'], models.at[i, 'param_grid'])
+        model.fit(train_features, train_labels)
+        model_all.append(model)
+        print(f"Best parameters: {model.best_params_}\n")
+        
+        # Prediction
+        train_pred = model.predict(train_features)
+        test_pred = model.predict(test_features)
+        
+        # Scoring and saving results
+        results = get_scores(results, i, train_pred, test_pred)
+        
+    return results, model_all
+```
+
+Use the function above to train the models.
+
+## Predict the Models
+```{python}
+def target_prediction(models, train, test, target_train, target_test):
+    # Model training and prediction
+    # Return model_rf as optimal
+    
+    # Target
+    labels = df[target]
+    
+    # Models training, prediction and save results
+    results, model_all = model_prediction(models, train, test, target_train, target_test)
+    results = results.sort_values(by=['mape_test', 'rmse_test'], ascending=True)
+    results.to_csv(f'{target}-models-scoring.csv', index=False)    
+    
+    return results, model_all
+```
+
+Use the function above to predict the target variable.
+
+## Show the Results
+```{python}
+#| label: tbl-6
+#| tbl-cap: Model Prediction Results
+results, model_all = target_prediction(models, train, test, target_train, target_test)
+#disable scientific notation
+pd.options.display.float_format = '{:.4f}'.format
+display(results)
+```
+
+::: {.callout-tip}
+## note
+ - name: The name of the model
+ - r2_score_train: The R-squared score for the training data
+ - r2_score_test: The R-squared score for the testing data
+ - rmse_train: The root mean squared error for the training data
+ - rmse_test: The root mean squared error for the testing data
+ - mape_train: The mean absolute percentage error for the training data
+ - mape_test: The mean absolute percentage error for the testing data
+:::
+
+## Model Evaluation
+```{python}
+# Get number of the optimal model by mape_test
+opt_num = results.index.values[0]
+print(f"The Optimal model is {models.loc[opt_num, 'name']} with number {opt_num}")
+```
+
+## Get the Optimal Model for Future Prediction
+```{python}
+model_opt = model_all[opt_num]
+```
+
+# Show the Prediction for Training Data and Plot the Prediction
+
+::: {.callout-tip}
+## note
+    - `display_2float_lists_alongside` - Display the first and last five values of two lists with float numbers alongside.
+    - `list_float_formatting` - Output float numbers from the list with only two decimal places.
+:::
+
+```{python}
+def display_2float_lists_alongside(list1, name_list1, list2, name_list2, num=5, num_decimal=2):
+    # Display num first and last data from 2 lists (or array) with float numbers alongside
+    # It displays float number in format with "%.{num_decimal}f" )
+    
+    def list_float_formatting(list_float, num_decimal=2):
+    # Output float numbers from the list with formatting %.{num_decimal}f
+        return ", ".join(f"%.{num_decimal}f" % s for s in list_float)
+    
+    biggest_name_length = len(name_list1)+2 if len(name_list1) > len(name_list2) else len(name_list2)+2
+    name_list1 = '{0: >{width}}'.format(name_list1+": ", width=biggest_name_length)
+    name_list2 = '{0: >{width}}'.format(name_list2+": ", width=biggest_name_length)
+    
+    print(f"Number of values is {len(list1)}\n")
+    num = len(list1) if len(list1) < num else num        
+    print(f"The {num} first values:")
+    print(name_list1, list_float_formatting(list(list1)[:num], num_decimal))
+    print(name_list2, list_float_formatting(list(list2)[:num], num_decimal), '\n')
+    
+    if len(list1) > num:
+        print(f"The {num} last values:")
+        print(name_list1, list_float_formatting(list(list1)[-num:], num_decimal))
+        print(name_list2, list_float_formatting(list(list2)[-num:], num_decimal))   
+```
+
+```{python}
+# Prediction of data
+ypred_train = model_opt.predict(train)
+ypred_test = model_opt.predict(test)
+```
+
+## Show the Prediction Results for Training Data(First and Last 5 Values)
+```{python}
+# Comparison training data and prediction
+display_2float_lists_alongside(target_train, "Training data", ypred_train, "Prediction")    
+```
+
+## Plot the Prediction for Training Data
+```{python}
+#| label: fig-polar
+#| fig-cap: "Prediction for the Training Data"
+#| fig-cap-location: top
+
+# Building plot for prediction for the training data 
+import plotly.graph_objs as go
+
+# Assuming you have 'train' and 'target_train' as your training data and target variable
+
+# Create traces
+trace1 = go.Scatter(
+    x=np.arange(len(train)),
+    y=target_train,
+    mode='markers',
+    name='Target training data',
+    marker=dict(color='red', size=7, symbol='circle')
+)
+
+trace2 = go.Scatter(
+    x=np.arange(len(train)),
+    y=ypred_train, 
+    mode='markers',
+    name='SVM model prediction',
+    marker=dict(color='#6EC25A', size=5, symbol='x')
+)
+
+# Define layout
+layout = go.Layout(
+    title='Prediction for the Training Data',
+    xaxis=dict(title='Days Index'),
+    yaxis=dict(title='Price'),
+    showlegend=True,
+    legend=dict(x=0.75, y=1.1)
+)
+
+# Create figure
+fig = go.Figure(data=[trace1, trace2], layout=layout)
+# set the size of the figure
+fig.update_layout(width=1000, height=700)
+# Show plot
+fig.show()
+
+```
+
+From the plot above, we can see that the model is able to predict the Bitcoin price quite accurately for the training data. However, we need to evaluate the model's performance on the testing data to see if it can generalize well to new data.
+
+# Show the Prediction for Testing Data and Plot the Prediction
+
+## Show the Prediction Results for Testing Data(First and Last 5 Values)
+```{python}
+# Comparison test data and prediction
+display_2float_lists_alongside(target_test, "Test data", ypred_test, "Prediction")
+```
+
+## Plot the Prediction for Testing Data
+```{python}
+#| label: fig-polar2
+#| fig-cap: "Prediction for the Testing Data"
+#| fig-cap-location: top
+
+# Create traces
+trace1 = go.Scatter(
+    x=np.arange(len(test)),
+    y=target_test,
+    mode='markers',
+    name='Target test data',
+    marker=dict(color='red', size=7, symbol='circle')
+)
+
+trace2 = go.Scatter(
+    x=np.arange(len(test)),
+    y=ypred_test, 
+    mode='markers',
+    name='SVM prediction',
+    marker=dict(color='#6EC25A', size=5, symbol='x')
+)
+
+# Define layout
+layout = go.Layout(
+    title='Prediction for the Test Data',
+    xaxis=dict(title='Index'),
+    yaxis=dict(title='Value'),
+    showlegend=True,
+    legend=dict(x=0.75, y=1.1)
+)
+
+# Create figure
+fig = go.Figure(data=[trace1, trace2], layout=layout)
+fig.update_layout(width=1000, height=700)
+# Show plot
+fig.show()
+```
+
+From the plot above, we can see that the model is able to predict the Bitcoin price quite accurately for the testing data. The model's performance on the testing data is similar to its performance on the training data, which indicates that the model is able to generalize well to new data. However, the valatility of the Bitcoin price makes it difficult to predict the price accurately. The difference between the predicted price and the actual price still slighltly high. 
+
+# Conclusion
+In the crptocurrency market, the price of Bitcoin can change rapidly, and it is difficult to predict the price accurately. In this project, I used four different models to predict the price of Bitcoin: KNeighbors Regressor, Support Vector Machines, Bagging Regressor, and XGB Regressor. I used GridSearchCV to find the best hyperparameters for each model. The results showed that the XGB Regressor model performed the best, with the lowest mean absolute percentage error on the testing data. The model was able to predict the Bitcoin price quite accurately for both the training and testing data. However, the volatility of the Bitcoin price makes it difficult to predict the price accurately. The difference between the predicted price and the actual price is still slightly high.
+
+Just like weather predictions, no matter how advanced the technology is, there's always a level of unpredictability. The price of Bitcoin changes so fast and so often, it's a tough job for any model to nail it down precisely. While the forecasts were good, they weren't perfect, and the difference between the predicted and actual Bitcoin prices showed that there's still some room for improvement. It's an ongoing challenge to keep up with Bitcoin's ever-changing nature.

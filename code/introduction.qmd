@@ -1,0 +1,90 @@
+---
+title: "Project Introduction"
+author:
+  - name: Jingda Yang
+    affiliations:
+      - name: Georgetown University
+        city: Washington
+        state: DC
+
+format:
+  html:
+    theme:
+        light: cosmo
+        dark: darkly
+        
+    embed-resources: true
+    # eval: false
+    code-fold: true 
+    self-contained: true
+    smooth-scroll: true
+    highlight: tango
+    page-layout: full
+    fig-cap-location: bottom
+    toc: true
+    toc-location: left
+    toc-title: Contents
+    number-sections: true
+#
+---
+
+```{python}
+#| eval: true
+from PIL import Image
+myImage = Image.open('intro.jpeg')
+myImage
+```
+*Picture from The Economist*
+
+::: {.callout-tip}
+## note
+**Please refresh the page if table or figure is not displayed.** \
+**Please use Code option on the top right corner to see the code or hide the code.** \
+**Please use the dark/light theme option on the top right corner to change the theme.**
+:::
+
+# Introduction
+
+The realm of cryptocurrency has emerged as a novel and dynamic sector within the broader financial markets, distinguished by its rapid growth, volatility, and innovation. Crypto market research delves into the multifaceted layers of digital currencies, from Bitcoin and Ethereum to an ever-expanding array of altcoins and tokens. This research encompasses the analysis of market trends, price fluctuations, trading volumes, and the technological underpinnings that differentiate each coin or token.
+  
+At the heart of crypto market research lies the endeavor to understand the forces that drive market movements — regulatory changes, technological advancements, market sentiment, or macroeconomic factors. By employing quantitative methods, such as statistical analysis and algorithmic trading models, alongside qualitative approaches, such as sentiment analysis and regulatory scrutiny, researchers aim to decipher the complexities of this nascent market.
+  
+As cryptocurrencies continue to gain mainstream acceptance, the focus of market research expands, addressing questions of adoption rates, use cases, and the integration of blockchain technology into existing financial systems. The overarching goal of this research is not only to anticipate the potential future of these digital assets but also to grasp their impact on the global economic landscape and the opportunities and risks they present to investors and institutions alike.
+
+## Background: Crypto Market from 2023 to Now
+
+From 2023 until now, the cryptocurrency market has experienced significant developments, both technologically and regulatory.
+
+### Technological and Market Trends:
+
+The NFT market saw a decrease in trading volume compared to the previous year, with a total of $11.8 billion in 2023, which is less than half of what it was in 2022. Despite this decrease, there was a rebound in Q4 of 2023, largely due to Bitcoin Ordinals.
+Ethereum remained the dominant chain for NFTs, although its market share dropped from 90% in 2022 to 72.3% in 2023.
+  
+Crypto trading volumes surged, hitting $10.3 trillion in Q4 of 2023, which was the first quarter-on-quarter growth of the year.
+  
+There was also a rise in the adoption of blockchain-based social media and an increasing interaction with decentralized applications (dapps).
+  
+Despite a tough macroeconomic environment, fundraising for crypto firms reached around $7.96 billion in 2023, with blockchain services leading the investments.
+  
+There was a significant drop in the amount lost to cryptocurrency hacks in 2023, totaling approximately $3.7 billion, which is a 51% decrease from the previous year​ ([CoinGecko](https://www.coingecko.com/research/publications/2023-annual-crypto-report))​​ ([Crypto.com](https://crypto.com/research/2023-review-2024-ahead))​.
+
+### Regulatory Actions and Predictions:
+
+The SEC became very active in enforcing regulations within the crypto space, treating cryptocurrencies similar to securities, which led to major lawsuits against crypto companies including Coinbase and Binance.
+  
+The Biden administration pushed for a tax on cryptocurrency mining as part of its efforts to address the environmental impact of the sector.
+  
+Despite increased regulatory oversight in the United States, some crypto companies began exploring opportunities in less stringent jurisdictions​ ([Coinpedia Fintech News](https://coinpedia.org/news/crypto-market-outlook-2024-roadmap-to-major-developments-events-and-key-dates/))​​ ([Exploding Topics](https://explodingtopics.com/blog/cryptocurrency-trends))​.
+
+### Performance and Predictions:
+
+Bitcoin posted its best quarterly performance in over two years at the start of 2023, gaining 68%, and other major cryptocurrencies like Ethereum and Cardano also saw substantial gains.
+Looking ahead, the upcoming Bitcoin halving in 2024 is expected to be an influential event, potentially affecting the price of Bitcoin due to the reduced supply of BTC rewards for mining.
+  
+There is also considerable anticipation around Ethereum's Dencun upgrade, which aims to enhance scaling through data sharding​ ([CoinDesk](https://www.coindesk.com/consensus-magazine/2023/04/11/crypto-q1-2023-performance-recap/))​.
+
+### AI Integration:
+
+AI has been increasingly integrated into the crypto sector, with AI tokens linked to ventures involving blockchain protocols, decentralized web platforms, and machine learning platforms gaining traction. The value of AI tokens has notably increased, reaching over $26 billion​ ([Exploding Topics](https://explodingtopics.com/blog/cryptocurrency-trends))​.
+  
+The landscape of cryptocurrency is continually evolving with market dynamics and regulatory changes presenting both challenges and opportunities for stakeholders in the industry.
