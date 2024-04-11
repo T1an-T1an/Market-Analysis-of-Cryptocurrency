@@ -15,7 +15,7 @@ format:
         
     embed-resources: true
     # eval: false
-    code-fold: true 
+    code-fold: show 
     code-tools: true
     self-contained: true
     smooth-scroll: true
@@ -31,6 +31,7 @@ format:
 
 ```{python}
 #| eval: true
+#| code-fold: true
 from PIL import Image
 myImage = Image.open('predict_price.jpeg')
 #change the size of the image
@@ -91,8 +92,6 @@ I only use the data from `2022-01-01` to `2024-03-12` for analysis.
 :::
 
 ```{python}
-#| label: tbl-1
-#| tbl-cap: Raw Dataset - 1
 directory = '../data/historical_data2'
 
 # Define the list of CSV files to import
@@ -122,25 +121,41 @@ df = pd.concat(dfs, ignore_index=False)
 df.rename(columns={'total_volume': 'Volume', 'coin_name': 'exchange'}, inplace=True)
 df = df[df['date'] >= '2022-01-01']
 df = df[df['date'] <= '2024-03-12']
-df.head()
+df.reset_index(drop=True, inplace=True)
+#df.head()
 ```
+
+|    | date       | price      | Volume       | market_cap     | exchange |
+|----|------------|------------|--------------|----------------|----------|
+| 0  | 2022-01-01 | 46319.51088| 2.589535e+10 | 8.761929e+11   | bitcoin  |
+| 1  | 2022-01-02 | 47816.077676| 1.890459e+10| 9.045519e+11   | bitcoin  |
+| 2  | 2022-01-03 | 47387.212168| 3.375613e+10| 8.975361e+11   | bitcoin  |
+| 3  | 2022-01-04 | 46531.140861| 2.189002e+10| 8.803302e+11   | bitcoin  |
+| 4  | 2022-01-05 | 45938.042272| 2.489599e+10| 8.762427e+11   | bitcoin  |
+: Table 1: Raw Dataset - 1
 
 
 ```{python}
-#| label: tbl-2
-#| tbl-cap: Raw Dataset - 2
 df2 = pd.read_csv('../data/historical_data1/BTC.csv')
 # Extract date from 2022-01-01 to 2024-03-27
 df2 = df2[df2['date'] >= '2022-01-01']
 df2 = df2[df2['date'] <= '2024-03-27']
 df2['date'] = pd.to_datetime(df2['date'])
-df2.head()
+df2.reset_index(drop=True, inplace=True)
+#df2.head()
 ```
 
+|    | ticker | date       | open      | high      | low       | close     |
+|----|--------|------------|-----------|-----------|-----------|-----------|
+| 0  | BTC    | 2022-01-01 | 46308.6000| 47954.8000| 46142.9000| 47450.2000|
+| 1  | BTC    | 2022-01-02 | 47450.2000| 47981.1000| 46669.3000| 47264.8000|
+| 2  | BTC    | 2022-01-03 | 47264.8000| 47574.8000| 45704.6000| 46222.5000|
+| 3  | BTC    | 2022-01-04 | 46222.5000| 47556.9000| 45490.9000| 46155.3000|
+| 4  | BTC    | 2022-01-05 | 46147.8000| 47063.5000| 42495.8000| 43439.9000|
+: Table 2: Raw Dataset - 2
 
 ```{python}
-#| label: tbl-3
-#| tbl-cap: Raw Dataset - 3 （Combined Dataset）
+
 #Join the two dataframes by date using pd.merge
 data = pd.merge(df, df2, on='date')
 
@@ -159,10 +174,20 @@ data = pd.DataFrame(data)
 data['Volume'] = data['Volume'].apply(lambda x: '{:.0f}'.format(x))
 # Convert 'Volume' to float
 data['Volume'] = data['Volume'].astype(float)
+data.reset_index(drop=True, inplace=True)
 # Display the modified DataFrame
-data.head()
+#data.head()
 ```
 
+|    | Date       | High      | Low       | Open      | Close     | Volume           |
+|----|------------|-----------|-----------|-----------|-----------|------------------|
+| 0  | 2022-01-01 | 47954.8000| 46142.9000| 46308.6000| 47450.2000| 25895349605.0000 |
+| 1  | 2022-01-02 | 47981.1000| 46669.3000| 47450.2000| 47264.8000| 18904585811.0000 |
+| 2  | 2022-01-03 | 47574.8000| 45704.6000| 47264.8000| 46222.5000| 33756128242.0000 |
+| 3  | 2022-01-04 | 47556.9000| 45490.9000| 46222.5000| 46155.3000| 21890019532.0000 |
+| 4  | 2022-01-05 | 47063.5000| 42495.8000| 46147.8000| 43439.9000| 24895990584.0000 |
+
+: Raw Dataset - 3 （Combined Dataset）
 
 # Add New Features
 Before we start the analysis, we will add some new features to the dataset. These features will help us to better understand the data and make better predictions.
@@ -194,12 +219,20 @@ def get_features(df_feat):
 ```
 
 ```{python}
-#| label: tbl-4
-#| tbl-cap: Final Dataset
 df = get_features(data)
 #df['Volume'] = df['Volume'].astype(float)
-df.head()
+#df.head()
 ```
+
+
+|    | Date       | High      | Low       | Open      | Close     | Volume           | Upper_Shadow | Lower_Shadow | high2low |
+|----|------------|-----------|-----------|-----------|-----------|------------------|--------------|--------------|----------|
+| 0  | 2022-01-01 | 47954.8000| 46142.9000| 46308.6000| 47450.2000| 25895349605.0000 | 504.6000     | 165.7000     | 1.0393   |
+| 1  | 2022-01-02 | 47981.1000| 46669.3000| 47450.2000| 47264.8000| 18904585811.0000 | 530.9000     | 595.5000     | 1.0281   |
+| 2  | 2022-01-03 | 47574.8000| 45704.6000| 47264.8000| 46222.5000| 33756128242.0000 | 310.0000     | 517.9000     | 1.0409   |
+| 3  | 2022-01-04 | 47556.9000| 45490.9000| 46222.5000| 46155.3000| 21890019532.0000 | 1334.4000    | 664.4000     | 1.0454   |
+| 4  | 2022-01-05 | 47063.5000| 42495.8000| 46147.8000| 43439.9000| 24895990584.0000 | 915.7000     | 944.1000     | 1.1075   |
+: Table 4: Final Dataset
 
 # Set the Number of Days to Forecast and the Target Variable
 I want to predict ten days of Bitcoin prices, so I set the `forecasting_days` variable to 10. The target variable is the `closing price` of Bitcoin.
@@ -313,10 +346,18 @@ models.at[n, 'param_grid'] = {'n_estimators': [50, 60, 70],
 
 ## Show Basic Information of Models
 ```{python}
-#| label: tbl-5
-#| tbl-cap: Model Information
-models
+# remove '#' to display the table
+#models
 ```
+
+
+|    | name                 | model                          | param_grid                             |
+|----|----------------------|--------------------------------|----------------------------------------|
+| 0  | KNeighbors Regressor | KNeighborsRegressor()          | {'n_neighbors': [3, 10, 20, 30], 'leaf_size...|
+| 1  | Support Vector Machines | SVR()                      | {'kernel': ['linear', 'rbf', 'sigmoid'...|
+| 2  | Bagging Regressor    | BaggingRegressor()             | {'max_features': [0.05], 'n_estimators': [3, 4...|
+| 3  | XGB Regressor        | XGBRegressor(base_score=None, booster=None, ca... | {'n_estimators': [50, 60, 70], 'learning_rate'...|
+: Table 5: Models Information
 
 ::: {.callout-tip}
 ## note
@@ -394,13 +435,20 @@ Use the function above to predict the target variable.
 
 ## Show the Results
 ```{python}
-#| label: tbl-6
-#| tbl-cap: Model Prediction Results
 results, model_all = target_prediction(models, train, test, target_train, target_test)
 #disable scientific notation
 pd.options.display.float_format = '{:.4f}'.format
-display(results)
+#display(results)
 ```
+
+
+|    | name                  | r2_score_train | r2_score_test | rmse_train | rmse_test | mape_train | mape_test |
+|----|-----------------------|----------------|---------------|------------|-----------|------------|-----------|
+| 1  | Support Vector Machines | 0.9954       | 0.3338        | 642.2670   | 2330.0167 | 0.0130     | 0.0269    |
+| 3  | XGB Regressor          | 0.9994       | -7.2188       | 240.4631   | 8184.0299 | 0.0063     | 0.1121    |
+| 0  | KNeighbors Regressor   | 0.9707       | -31.8583      | 1629.1420  | 16363.8452| 0.0317     | 0.2366    |
+| 2  | Bagging Regressor      | 0.8157       | -117.3268     | 4087.5155  | 31053.0695| 0.0940     | 0.4480    |
+: Table 6:Model Prediction Results
 
 ::: {.callout-tip}
 ## note
