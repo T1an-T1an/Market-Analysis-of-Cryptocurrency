@@ -63,7 +63,7 @@ import datetime
 pd.set_option('display.float_format',lambda x : '%.2f'%x)
 import warnings
 warnings.filterwarnings('ignore')
-import plotly.graph_objects as go 
+
 import gc
 import matplotlib.colors
 from plotly.subplots import make_subplots
@@ -244,10 +244,34 @@ plt.show()
 The charts depict the price and market capitalization of various cryptocurrencies over time, plotted on logarithmic scales to accommodate wide-ranging values. Bitcoin has the highest price and market cap, with Ethereum following. Most cryptocurrencies show an increase in both price and market cap over the observed period. Market caps for smaller cryptocurrencies like Dogecoin, Ripple, and Cardano are lower but increase steadily. Ethereum Classic, Solana, and Binance Coin also show growth. The right charts indicate that while prices fluctuate, market caps generally trend upwards, suggesting an increasing investment in these assets over time. The growth trajectory is consistent across both short-term and long-term views.
 
 # Data Visualization - Correlation Heatmap of Cryptocurrencies
+
+```{python}
+import plotly.graph_objects as go
+fig = go.Figure()
+
+# Update layout for a pure white background and no axes
+fig.update_layout(
+    plot_bgcolor='white',  # Set plot background to white
+    paper_bgcolor='white',  # Set figure background to white
+    xaxis=dict(showgrid=False, zeroline=False, visible=False),  # Hide x-axis
+    yaxis=dict(showgrid=False, zeroline=False, visible=False),  # Hide y-axis
+    margin=dict(l=0, r=0, t=0, b=0)  # Remove margins
+)
+
+# Set figure size to be very small
+fig.update_layout(width=100, height=10)
+
+# Show the plot
+fig.show()
+```
+
+
 ```{python}
 #| label: fig-polar2
 #| fig-cap: "Correlation Heatmap of Cryptocurrencies"
 #| fig-cap-location: top
+
+import plotly.graph_objects as go 
 df_pivot=df.pivot_table(index='date', columns='exchange', values='price').reset_index()
 corr=df_pivot.corr().round(2)
 mask=np.triu(np.ones_like(corr, dtype=bool))
@@ -265,6 +289,9 @@ fig=ff.create_annotated_heatmap(z=cor, x=x, y=y,
 fig.update_layout(template="plotly_white", title='Coin Correlation',height=800,width=900,
                   yaxis=dict(showgrid=False, autorange='reversed'),
                   xaxis=dict(showgrid=False))
+
+#set plot size
+
 fig.show()
 ```
 
